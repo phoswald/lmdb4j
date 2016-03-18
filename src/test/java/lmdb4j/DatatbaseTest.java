@@ -1,21 +1,15 @@
 package lmdb4j;
 
-import static lmdb4j.structs.Constants.P_BRANCH;
-import static lmdb4j.structs.Constants.P_LEAF;
-import static lmdb4j.structs.Constants.P_META;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNotNull;
-import static org.junit.Assert.assertTrue;
 
+import java.io.CharArrayWriter;
 import java.io.IOException;
 import java.nio.file.Paths;
 
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
-
-import lmdb4j.structs.Node;
-import lmdb4j.structs.Page;
 
 public class DatatbaseTest {
 
@@ -57,44 +51,15 @@ public class DatatbaseTest {
     }
 
     @Test
-    public void getPages() throws DatabaseException {
-        DatabaseInfo info = db.getInfo();
-        DatabaseStat stat = db.getStat();
-        assertEquals(2819, info.lastPgNo);
+    public void verifyStat() throws DatabaseException {
+        db.verifyStat();
+    }
 
-        long metaPages = 0;
-        long branchPages = 0;
-        long leafPages = 0;
-        long entries = 0;
-        for(long pgno = 0; pgno <= info.lastPgNo; pgno++) {
-            Page page = db.getPage(pgno);
-            assertEquals(pgno, page.getPgNo());
-
-            int flags = page.getFlags();
-            assertTrue(flags == P_META || flags == P_BRANCH || flags == P_LEAF);
-            switch(flags) {
-                case P_META:
-                    metaPages++;
-                    break;
-                case P_BRANCH:
-                    branchPages++;
-                    break;
-                case P_LEAF:
-                    leafPages++;
-                    int numKeys = page.getNumKeys();
-                    for(int i = 0; i < numKeys; i++) {
-                        entries++;
-                        Node node = page.getNode(i);
-                        String key = node.getKey().asString();
-                        String data = node.getData().asString();
-                        //System.out.println("*** '" + key + "' = '" + data + "'.");
-                    }
-            }
-        }
-
-        assertEquals(2, metaPages);
-        assertEquals(stat.branchPages, branchPages);
-        assertEquals(stat.leafPages, leafPages);
-        assertEquals(stat.entries, entries);
+    @Test
+    public void dumpToString() throws DatabaseException, IOException {
+        CharArrayWriter writer = new CharArrayWriter();
+        db.dump(writer);
+        String text = writer.toString();
+        assertEquals(5691964, text.length());
     }
 }

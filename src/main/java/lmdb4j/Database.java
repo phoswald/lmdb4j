@@ -2,8 +2,14 @@ package lmdb4j;
 
 import static lmdb4j.structs.Constants.MAIN_DBI;
 import static lmdb4j.structs.Constants.NUM_METAS;
+import static lmdb4j.structs.Constants.P_BRANCH;
+import static lmdb4j.structs.Constants.P_LEAF;
+import static lmdb4j.structs.Constants.P_META;
 
 import java.io.IOException;
+import java.io.OutputStream;
+import java.io.OutputStreamWriter;
+import java.io.Writer;
 import java.nio.channels.FileChannel;
 import java.nio.channels.FileChannel.MapMode;
 import java.nio.file.Path;
@@ -13,6 +19,7 @@ import lmdb4j.mmap.MappedBuffer;
 import lmdb4j.structs.Constants;
 import lmdb4j.structs.DB;
 import lmdb4j.structs.Meta;
+import lmdb4j.structs.Node;
 import lmdb4j.structs.Page;
 
 public class Database implements AutoCloseable {
@@ -84,7 +91,98 @@ public class Database implements AutoCloseable {
         return new DatabaseStat(psize, db.getDepth(), db.getBranchPages(), db.getLeafPages(), db.getOverflowPages(), db.getEntries());
     }
 
-    public Page getPage(long pgno) { // TODO only for debugging
+    private Page getPage(long pgno) throws DatabaseException {
         return new Page(mmap, pgno * psize);
+    }
+
+    private long getRoot() throws DatabaseException {
+        return meta.getDB(MAIN_DBI).getRoot();
+    }
+
+    public void verifyStat() throws DatabaseException {
+        ensureOpen();
+        DatabaseStat stat = getStat();
+        long lastPgNo = meta.getLastPgNo();
+        long metaPages = 0;
+        long branchPages = 0;
+        long leafPages = 0;
+        long entries = 0;
+        for(long pgno = 0; pgno <= lastPgNo; pgno++) {
+            Page page = getPage(pgno);
+            assertEquals("pgno", pgno, page.getPgNo());
+
+            int flags = page.getFlags();
+            if(flags != P_META && flags != P_BRANCH && flags != P_LEAF) {
+                throw new IllegalStateException("invalid page flags: " + flags);
+            }
+            switch(flags) {
+                case P_META:
+                    metaPages++;
+                    break;
+                case P_BRANCH: {
+                    branchPages++;
+                    int numKeys = page.getNumKeys();
+                    for(int i = 0; i < numKeys; i++) {
+                        Node node = page.getNode(i);
+                        /*String key =*/ node.getKey().asString();
+                        /*long refPgNo =*/ node.getPgNo();
+                    }
+                }   break;
+                case P_LEAF: {
+                    leafPages++;
+                    int numKeys = page.getNumKeys();
+                    for(int i = 0; i < numKeys; i++) {
+                        entries++;
+                        Node node = page.getNode(i);
+                        /*String key =*/ node.getKey().asString();
+                        /*String data =*/ node.getData().asString();
+                    }
+                }   break;
+            }
+        }
+        assertEquals("metaPages", 2, metaPages);
+        assertEquals("branchPages", stat.branchPages, branchPages);
+        assertEquals("leafPages", stat.leafPages, leafPages);
+        assertEquals("entries", stat.entries, entries);
+    }
+
+    private void assertEquals(String value, long expected, long actual) {
+        if(expected != actual) {
+            throw new IllegalStateException(value + ": exepcted="+expected+", actual="+actual);
+        }
+    }
+
+    public void dump(OutputStream stream) throws IOException, DatabaseException {
+        OutputStreamWriter writer = new OutputStreamWriter(stream);
+        dump(writer);
+        writer.flush();
+    }
+
+    public void dump(Writer writer) throws IOException, DatabaseException {
+        ensureOpen();
+        dump(writer, getRoot());
+    }
+
+    private void dump(Writer writer, long pgno) throws IOException, DatabaseException {
+        Page page = getPage(pgno);
+        switch(page.getFlags()) {
+            case Constants.P_BRANCH: {
+                int numKeys = page.getNumKeys();
+                for(int i = 0; i < numKeys; i++) {
+                    dump(writer, page.getNode(i).getPgNo());
+                }
+            }   break;
+            case Constants.P_LEAF: {
+                int numKeys = page.getNumKeys();
+                for(int i = 0; i < numKeys; i++) {
+                    Node node = page.getNode(i);
+                    writer.write('+');
+                    node.getKey().writeTo(writer);
+                    writer.write(':');
+                    node.getData().writeTo(writer);
+                    writer.write('\n');
+                }
+            }   break;
+        }
     }
 }

@@ -55,7 +55,7 @@ public class Node {
     }
 
     public long getPgNo() {
-        return getLo() + (getHi() << 16) + ((long) getFlags() << 32);
+        return getLo() + (getHi() << 16) /*+ ((long) getFlags() << 32)*/;
     }
 
     /** key and data are appended here */

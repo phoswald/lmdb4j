@@ -1,5 +1,8 @@
 package lmdb4j.structs;
 
+import java.io.IOException;
+import java.io.Writer;
+
 import lmdb4j.mmap.MappedBuffer;
 
 /**
@@ -13,6 +16,8 @@ import lmdb4j.mmap.MappedBuffer;
  * Other data items can in theory be from 0 to 0xffffffff bytes long.
  */
 public class Val {
+
+    private static final char[] HEX = "0123456789ABCDEF".toCharArray();
 
     private final MappedBuffer mmap;
     private final long addr;
@@ -32,5 +37,30 @@ public class Val {
 
     public String asString() {
         return mmap.getString(addr, size);
+    }
+
+    public void writeTo(Writer writer) throws IOException {
+        for(int i = 0; i < size; i++) {
+            int c = mmap.getByte(addr+i) & 0xFF;
+            if(c >= ' ' && c <= 0x7F) {
+                if(c == '\\' || c == '*' || c == ':') {
+                    writer.write('\\');
+                }
+                writer.write(c);
+            } else if(c == '\t') {
+                writer.write('\\');
+                writer.write('t');
+            } else if(c == '\r') {
+                writer.write('\\');
+                writer.write('r');
+            } else if(c == '\n') {
+                writer.write('\\');
+                writer.write('n');
+            } else {
+                writer.write("\\x");
+                writer.write(HEX[c >> 4]);
+                writer.write(HEX[c & 0xF]);
+            }
+        }
     }
 }
