@@ -1,7 +1,7 @@
 package lmdb4j;
 
-import static lmdb4j.Constants.MAIN_DBI;
-import static lmdb4j.Constants.NUM_METAS;
+import static lmdb4j.structs.Constants.MAIN_DBI;
+import static lmdb4j.structs.Constants.NUM_METAS;
 
 import java.io.IOException;
 import java.nio.channels.FileChannel;
@@ -9,13 +9,19 @@ import java.nio.channels.FileChannel.MapMode;
 import java.nio.file.Path;
 import java.nio.file.StandardOpenOption;
 
+import lmdb4j.mmap.MappedBuffer;
+import lmdb4j.structs.Constants;
+import lmdb4j.structs.DB;
+import lmdb4j.structs.Meta;
+import lmdb4j.structs.Page;
+
 public class Database implements AutoCloseable {
 
     private final Path file;
     private final FileChannel channel;
     private final MappedBuffer mmap;
 
-    private StructMeta meta;
+    private Meta meta;
     private int psize;
 
     public Database(Path file) throws IOException {
@@ -46,13 +52,14 @@ public class Database implements AutoCloseable {
         }
     }
 
-    private StructMeta readEnvHeader() throws DatabaseException {
-        StructMeta meta = null;
+    private Meta readEnvHeader() throws DatabaseException {
+        Meta meta = null;
         int off = 0;
         // We don't know the page size yet, so use a minimum value.
         // Read both meta pages so we can use the latest one.
         for(int i = 0; i < NUM_METAS; i++, off+=meta.getPageSize()) {
-            StructMeta m = new StructMeta(mmap, off + StructHeader.SIZE);
+            // Page p = new Page(mmap, off);
+            Meta m = new Meta(mmap, off + Page.SIZE);
             if(m.getMagic() != Constants.MDB_MAGIC) {
                 throw new DatabaseException("meta has invalid magic");
             }
@@ -73,7 +80,11 @@ public class Database implements AutoCloseable {
 
     public DatabaseStat getStat() throws DatabaseException {
         ensureOpen();
-        StructDB db = meta.getDB(MAIN_DBI);
+        DB db = meta.getDB(MAIN_DBI);
         return new DatabaseStat(psize, db.getDepth(), db.getBranchPages(), db.getLeafPages(), db.getOverflowPages(), db.getEntries());
+    }
+
+    public Page getPage(long pgno) { // TODO only for debugging
+        return new Page(mmap, pgno * psize);
     }
 }

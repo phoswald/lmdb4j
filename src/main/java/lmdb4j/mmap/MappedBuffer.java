@@ -1,10 +1,11 @@
-package lmdb4j;
+package lmdb4j.mmap;
 
 import java.nio.ByteOrder;
 import java.nio.IntBuffer;
 import java.nio.LongBuffer;
 import java.nio.MappedByteBuffer;
 import java.nio.ShortBuffer;
+import java.nio.charset.StandardCharsets;
 
 public final class MappedBuffer {
 
@@ -51,5 +52,13 @@ public final class MappedBuffer {
 
     public final void putLong(long addr, long value) {
         longs.put((int) (addr >> 3) /* currently limited to 4 GB */, value);
+    }
+
+    public final String getString(long addr, int size) {
+        byte[] val = new byte[size];
+        for(int i = 0; i < size; i++) {
+            val[i] = getByte(addr+i);
+        }
+        return new String(val, StandardCharsets.UTF_8);
     }
 }
