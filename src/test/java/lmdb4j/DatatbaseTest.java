@@ -17,8 +17,8 @@ public class DatatbaseTest {
 
     @Before
     public void create() throws IOException {
-        db = new Database(Paths.get("src", "test", "resources", "dir-tree.mdb"));
-        assertEquals("src/test/resources/dir-tree.mdb", db.toString());
+        db = new Database(Paths.get("src", "test", "resources", "dirtree.mdb"));
+        assertEquals("src/test/resources/dirtree.mdb", db.toString());
     }
 
     @After
@@ -33,7 +33,7 @@ public class DatatbaseTest {
         assertNotNull(info); // TODO check more fields: maxReaders, numReaders
         assertEquals(0, info.mapAddress);
         assertEquals(512 << 20, info.mapSize);
-        assertEquals(2819, info.lastPgNo);
+        assertEquals(12413, info.lastPgNo);
         assertEquals(1, info.lastTxnId);
     }
 
@@ -43,11 +43,11 @@ public class DatatbaseTest {
 
         assertNotNull(stat);
         assertEquals(4096, stat.psize);
-        assertEquals(3, stat.depth);
-        assertEquals(43, stat.branchPages);
-        assertEquals(2775, stat.leafPages);
+        assertEquals(4, stat.depth);
+        assertEquals(176, stat.branchPages);
+        assertEquals(12236, stat.leafPages);
         assertEquals(0, stat.overflowPages);
-        assertEquals(138105, stat.entries);
+        assertEquals(653132, stat.entries);
     }
 
     @Test
@@ -60,6 +60,6 @@ public class DatatbaseTest {
         CharArrayWriter writer = new CharArrayWriter();
         db.dump(writer);
         String text = writer.toString();
-        assertEquals(5691964, text.length());
+        assertEquals(24983234, text.length());
     }
 }
